@@ -1,24 +1,17 @@
-
-
-
 name: Build AlMutafawiq APK
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.35.7'
           channel: stable
@@ -26,14 +19,12 @@ jobs:
       - name: Create Flutter project
         run: flutter create --org com.almutafawiq .
 
-      - name: Replace main.dart
+      - name: Write app code
         run: |
-          cat > lib/main.dart <<'EOF'
+          cat > lib/main.dart <<'DART'
           import 'package:flutter/material.dart';
 
-          void main() {
-            runApp(const AlMutafawiqApp());
-          }
+          void main() => runApp(const AlMutafawiqApp());
 
           class AlMutafawiqApp extends StatelessWidget {
             const AlMutafawiqApp({super.key});
@@ -48,7 +39,6 @@ jobs:
                     seedColor: const Color(0xFF6C3FD9),
                   ),
                   useMaterial3: true,
-                  fontFamily: 'Arial',
                 ),
                 home: const WelcomeScreen(),
               );
@@ -63,7 +53,7 @@ jobs:
               return Directionality(
                 textDirection: TextDirection.rtl,
                 child: Scaffold(
-                  body: Center(
+                  body: SafeArea(
                     child: Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
@@ -71,14 +61,14 @@ jobs:
                         children: [
                           const Icon(
                             Icons.school_rounded,
-                            size: 100,
+                            size: 110,
                             color: Color(0xFF6C3FD9),
                           ),
                           const SizedBox(height: 24),
                           const Text(
                             'المتفوق',
                             style: TextStyle(
-                              fontSize: 38,
+                              fontSize: 40,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -87,17 +77,24 @@ jobs:
                             'ركّز اليوم، واصنع مستقبلك',
                             style: TextStyle(fontSize: 18),
                           ),
-                          const SizedBox(height: 40),
-                          ElevatedButton(
-                            onPressed: () {},
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 35,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                'ابدأ رحلتك',
-                                style: TextStyle(fontSize: 18),
+                          const SizedBox(height: 45),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const RegisterScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text(
+                                  'ابدأ رحلتك',
+                                  style: TextStyle(fontSize: 18),
+                                ),
                               ),
                             ),
                           ),
@@ -109,7 +106,54 @@ jobs:
               );
             }
           }
-          EOF
+
+          class RegisterScreen extends StatelessWidget {
+            const RegisterScreen({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  appBar: AppBar(title: const Text('إنشاء حساب')),
+                  body: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        const TextField(
+                          decoration: InputDecoration(
+                            labelText: 'اسم الطالب',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const TextField(
+                          decoration: InputDecoration(
+                            labelText: 'البريد الإلكتروني',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const TextField(
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: 'كلمة المرور',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+                        ElevatedButton(
+                          onPressed: () {},
+                          child: const Text('متابعة'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+          DART
 
       - name: Get dependencies
         run: flutter pub get
@@ -117,8 +161,7 @@ jobs:
       - name: Build APK
         run: flutter build apk --release --split-per-abi
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: almutafawiq-apk
           path: build/app/outputs/flutter-apk/*.apk
