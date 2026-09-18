@@ -122,15 +122,31 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'نساعدك على تنظيم وقتك وتحقيق أحلامك الدراسية',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 15, color: Colors.black54),
-                    ),
-                  ],
-                ),
-             
-
+            ],
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('المتفوق'),
+        backgroundColor: navy,
+        foregroundColor: Colors.white,
+      ),
+      body: const Center(
+        child: Text(
+          'مرحبًا بك في تطبيق المتفوق',
+          style: TextStyle(fontSize: 22, color: navy),
+        ),
+      ),
+    );
+  }
 }
