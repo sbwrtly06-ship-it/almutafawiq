@@ -57,10 +57,10 @@ jobs:
 
       - name: Add native Usage Access bridge
         run: |
-          mkdir -p android/app/src/main/kotlin/com/almutafawiq
+          mkdir -p android/app/src/main/kotlin/com/almutafawiq/almutafawiq
 
-          cat > android/app/src/main/kotlin/com/almutafawiq/MainActivity.kt <<'EOF'
-          package com.almutafawiq
+          cat > android/app/src/main/kotlin/com/almutafawiq/almutafawiq/MainActivity.kt <<'EOF'
+          package com.almutafawiq.almutafawiq
 
           import android.app.AppOpsManager
           import android.content.Context
