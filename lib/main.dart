@@ -361,7 +361,7 @@ class _AppsScreenState extends State<AppsScreen> {
 
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const FocusScreen()),
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
     );
   }
 
@@ -645,6 +645,288 @@ class _FocusScreenState extends State<FocusScreen> {
           ),
 
           const SizedBox(height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String studentName = 'الطالب';
+  int goalMinutes = 120;
+  int studiedMinutes = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    loadStats();
+  }
+
+  Future<void> loadStats() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (!mounted) return;
+
+    setState(() {
+      studentName = prefs.getString('student_name') ?? 'الطالب';
+      goalMinutes = prefs.getInt('daily_goal_minutes') ?? 120;
+      studiedMinutes = prefs.getInt('completed_focus_minutes') ?? 0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = goalMinutes <= 0
+        ? 0.0
+        : (studiedMinutes / goalMinutes).clamp(0.0, 1.0);
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F7FC),
+        appBar: AppBar(
+          title: const Text(
+            'المتفوق',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: navy,
+          foregroundColor: Colors.white,
+        ),
+        body: RefreshIndicator(
+          onRefresh: loadStats,
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Text(
+                'مرحبًا، $studentName 👋',
+                style: const TextStyle(
+                  fontSize: 27,
+                  fontWeight: FontWeight.bold,
+                  color: navy,
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              const Text(
+                'جاهز لجلسة تركيز جديدة؟',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.black54,
+                ),
+              ),
+
+              const SizedBox(height: 22),
+
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      purple,
+                      Color(0xFF8B6AE8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      'هدفك اليوم',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '$goalMinutes دقيقة',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 34,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 12,
+                        backgroundColor: Colors.white30,
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(gold),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '${(progress * 100).round()}% من الهدف',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.timer_outlined,
+                      title: 'درست اليوم',
+                      value: '$studiedMinutes',
+                      unit: 'دقيقة',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _StatCard(
+                      icon: Icons.flag_outlined,
+                      title: 'الهدف',
+                      value: '$goalMinutes',
+                      unit: 'دقيقة',
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 20),
+
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.auto_graph,
+                          color: purple,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'إحصائيات اليوم',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: navy,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    Text(
+                      studiedMinutes == 0
+                          ? 'لم تبدأ الدراسة اليوم بعد.'
+                          : 'أحسنت! واصل حتى تحقق هدفك اليومي.',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              SizedBox(
+                height: 58,
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FocusScreen(),
+                      ),
+                    );
+                    loadStats();
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text(
+                    'ابدأ جلسة تركيز',
+                    style: TextStyle(fontSize: 19),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
+  final String unit;
+
+  const _StatCard({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.unit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: purple, size: 30),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.black54),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 25,
+              fontWeight: FontWeight.bold,
+              color: navy,
+            ),
+          ),
+          Text(
+            unit,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black45,
+            ),
+          ),
         ],
       ),
     );
