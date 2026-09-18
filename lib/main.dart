@@ -427,10 +427,35 @@ class FocusScreen extends StatefulWidget {
 
 class _FocusScreenState extends State<FocusScreen> {
   Timer? timer;
-  int seconds = 60 * 60;
-  bool running = false;
 
-  void toggle() {
+  int totalSeconds = 120 * 60;
+  int remainingSeconds = 120 * 60;
+
+  bool running = false;
+  bool loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    loadDuration();
+  }
+
+  Future<void> loadDuration() async {
+    final prefs = await SharedPreferences.getInstance();
+    final minutes = prefs.getInt('daily_goal_minutes') ?? 120;
+
+    if (!mounted) return;
+
+    setState(() {
+      totalSeconds = minutes * 60;
+      remainingSeconds = totalSeconds;
+      loaded = true;
+    });
+  }
+
+  void toggleTimer() {
+    if (!loaded) return;
+
     if (running) {
       timer?.cancel();
       setState(() => running = false);
@@ -440,34 +465,70 @@ class _FocusScreenState extends State<FocusScreen> {
     setState(() => running = true);
 
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (seconds <= 1) {
+      if (remainingSeconds <= 1) {
         timer?.cancel();
+
         setState(() {
-          seconds = 0;
+          remainingSeconds = 0;
           running = false;
         });
+
+        saveSession();
       } else {
-        setState(() => seconds--);
+        setState(() => remainingSeconds--);
       }
     });
   }
 
-  void reset() {
+  Future<void> saveSession() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final completed =
+        prefs.getInt('completed_focus_minutes') ?? 0;
+
+    final studiedSeconds = totalSeconds - remainingSeconds;
+    final studiedMinutes = studiedSeconds ~/ 60;
+
+    await prefs.setInt(
+      'completed_focus_minutes',
+      completed + studiedMinutes,
+    );
+
+    await prefs.setString(
+      'last_focus_session',
+      DateTime.now().toIso8601String(),
+    );
+  }
+
+  Future<void> resetTimer() async {
     timer?.cancel();
+
+    await saveSession();
+
     setState(() {
-      seconds = 60 * 60;
+      remainingSeconds = totalSeconds;
       running = false;
     });
   }
 
-  String get timeText {
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
+  String formatTime() {
+    final hours = remainingSeconds ~/ 3600;
+    final minutes = (remainingSeconds % 3600) ~/ 60;
+    final seconds = remainingSeconds % 60;
 
-    return '${h.toString().padLeft(2, '0')}:'
-        '${m.toString().padLeft(2, '0')}:'
-        '${s.toString().padLeft(2, '0')}';
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:'
+          '${minutes.toString().padLeft(2, '0')}:'
+          '${seconds.toString().padLeft(2, '0')}';
+    }
+
+    return '${minutes.toString().padLeft(2, '0')}:'
+        '${seconds.toString().padLeft(2, '0')}';
+  }
+
+  double get progress {
+    if (totalSeconds == 0) return 0;
+    return (totalSeconds - remainingSeconds) / totalSeconds;
   }
 
   @override
@@ -479,48 +540,111 @@ class _FocusScreenState extends State<FocusScreen> {
   @override
   Widget build(BuildContext context) {
     return Page(
-      title: 'جلسة التركيز',
+      title: 'وقت التركيز',
       child: Column(
         children: [
-          const SizedBox(height: 20),
-          const Icon(Icons.menu_book, size: 85, color: purple),
-          const SizedBox(height: 25),
-          const Text(
-            'وقت التركيز',
-            style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+          const SizedBox(height: 10),
+
+          const Icon(
+            Icons.menu_book_rounded,
+            size: 75,
+            color: purple,
           ),
-          const SizedBox(height: 25),
-          Text(
-            timeText,
-            style: const TextStyle(
-              fontSize: 52,
+
+          const SizedBox(height: 15),
+
+          const Text(
+            'جلسة التركيز',
+            style: TextStyle(
+              fontSize: 28,
               fontWeight: FontWeight.bold,
               color: navy,
             ),
           ),
-          const SizedBox(height: 25),
-          LinearProgressIndicator(
-            value: seconds / 3600,
-            minHeight: 10,
+
+          const SizedBox(height: 8),
+
+          const Text(
+            'ركز على دراستك وابتعد عن المشتتات',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 15,
+              color: Colors.black54,
+            ),
           ),
+
+          const SizedBox(height: 30),
+
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              vertical: 35,
+              horizontal: 20,
+            ),
+            decoration: BoxDecoration(
+              color: lightPurple,
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  loaded ? formatTime() : '--:--',
+                  style: const TextStyle(
+                    fontSize: 52,
+                    fontWeight: FontWeight.bold,
+                    color: navy,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 12,
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                Text(
+                  '${(progress * 100).round()}% من الجلسة',
+                  style: const TextStyle(
+                    color: purple,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const Spacer(),
+
           SizedBox(
             width: double.infinity,
-            height: 55,
+            height: 58,
             child: FilledButton.icon(
-              onPressed: toggle,
-              icon: Icon(running ? Icons.pause : Icons.play_arrow),
+              onPressed: toggleTimer,
+              icon: Icon(
+                running ? Icons.pause : Icons.play_arrow,
+              ),
               label: Text(
-                running ? 'إيقاف مؤقت' : 'ابدأ المؤقت',
-                style: const TextStyle(fontSize: 18),
+                running ? 'إيقاف مؤقت' : 'ابدأ التركيز',
+                style: const TextStyle(fontSize: 19),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: reset,
-            child: const Text('إعادة ضبط'),
+
+          const SizedBox(height: 10),
+
+          TextButton.icon(
+            onPressed: resetTimer,
+            icon: const Icon(Icons.restart_alt),
+            label: const Text('إعادة ضبط'),
           ),
+
+          const SizedBox(height: 10),
         ],
       ),
     );
