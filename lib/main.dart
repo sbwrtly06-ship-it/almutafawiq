@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const purple = Color(0xFF6C3FD9);
@@ -434,6 +435,21 @@ class _FocusScreenState extends State<FocusScreen> {
   bool running = false;
   bool loaded = false;
 
+  Timer? monitorTimer;
+  String? lastDetectedPackage;
+
+  static const usageChannel = MethodChannel('almutafawiq/usage');
+
+  final blockedPackages = <String, String>{
+    'TikTok': 'com.zhiliaoapp.musically',
+    'Instagram': 'com.instagram.android',
+    'Snapchat': 'com.snapchat.android',
+    'YouTube': 'com.google.android.youtube',
+    'Facebook': 'com.facebook.katana',
+    'WhatsApp': 'com.whatsapp',
+    'Telegram': 'org.telegram.messenger',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -453,20 +469,146 @@ class _FocusScreenState extends State<FocusScreen> {
     });
   }
 
-  void toggleTimer() {
+  Future<bool> hasUsageAccess() async {
+    try {
+      return await usageChannel.invokeMethod<bool>('hasUsageAccess') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> openUsageAccessSettings() async {
+    try {
+      await usageChannel.invokeMethod('openUsageAccessSettings');
+    } catch (_) {}
+  }
+
+  Future<void> startMonitoring() async {
+    monitorTimer?.cancel();
+
+    monitorTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => checkForegroundApp(),
+    );
+
+    await checkForegroundApp();
+  }
+
+  void stopMonitoring() {
+    monitorTimer?.cancel();
+    monitorTimer = null;
+    lastDetectedPackage = null;
+  }
+
+  Future<void> checkForegroundApp() async {
+    if (!running) return;
+
+    try {
+      final package = await usageChannel.invokeMethod<String>(
+        'getForegroundPackage',
+      );
+
+      if (package == null) return;
+
+      String? detectedName;
+
+      for (final entry in blockedPackages.entries) {
+        if (package == entry.value) {
+          detectedName = entry.key;
+          break;
+        }
+      }
+
+      if (detectedName == null) return;
+
+      // لا نسجل التطبيق نفسه عدة مرات متتالية.
+      if (lastDetectedPackage == package) return;
+
+      lastDetectedPackage = package;
+
+      final prefs = await SharedPreferences.getInstance();
+
+      final now = DateTime.now();
+      final dateKey =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+          '${now.day.toString().padLeft(2, '0')}';
+
+      final key = 'distraction_attempts_$dateKey';
+
+      final attempts = prefs.getInt(key) ?? 0;
+      await prefs.setInt(key, attempts + 1);
+
+      final namesKey = 'distraction_names_$dateKey';
+      final names = prefs.getStringList(namesKey) ?? <String>[];
+      names.add(detectedName);
+      await prefs.setStringList(namesKey, names);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'تم تسجيل محاولة تشتت: $detectedName',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      // Usage Access قد لا يكون مفعلاً بعد.
+    }
+  }
+
+  Future<void> toggleTimer() async {
     if (!loaded) return;
 
     if (running) {
       timer?.cancel();
+      stopMonitoring();
+
       setState(() => running = false);
+      return;
+    }
+
+    final access = await hasUsageAccess();
+
+    if (!access) {
+      if (!mounted) return;
+
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('صلاحية الوصول إلى الاستخدام'),
+          content: const Text(
+            'يحتاج وضع التركيز إلى صلاحية Usage Access '
+            'لاكتشاف التطبيقات المشتتة أثناء جلسة التركيز.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('لاحقًا'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await openUsageAccessSettings();
+              },
+              child: const Text('فتح الإعدادات'),
+            ),
+          ],
+        ),
+      );
+
       return;
     }
 
     setState(() => running = true);
 
+    await startMonitoring();
+
     timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (remainingSeconds <= 1) {
         timer?.cancel();
+        stopMonitoring();
 
         setState(() {
           remainingSeconds = 0;
@@ -502,6 +644,7 @@ class _FocusScreenState extends State<FocusScreen> {
 
   Future<void> resetTimer() async {
     timer?.cancel();
+    stopMonitoring();
 
     await saveSession();
 
@@ -534,6 +677,7 @@ class _FocusScreenState extends State<FocusScreen> {
   @override
   void dispose() {
     timer?.cancel();
+    stopMonitoring();
     super.dispose();
   }
 
