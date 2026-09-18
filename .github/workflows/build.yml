@@ -1,0 +1,124 @@
+
+
+
+name: Build AlMutafawiq APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+
+      - name: Create Flutter project
+        run: flutter create --org com.almutafawiq .
+
+      - name: Replace main.dart
+        run: |
+          cat > lib/main.dart <<'EOF'
+          import 'package:flutter/material.dart';
+
+          void main() {
+            runApp(const AlMutafawiqApp());
+          }
+
+          class AlMutafawiqApp extends StatelessWidget {
+            const AlMutafawiqApp({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                debugShowCheckedModeBanner: false,
+                title: 'المتفوق',
+                theme: ThemeData(
+                  colorScheme: ColorScheme.fromSeed(
+                    seedColor: const Color(0xFF6C3FD9),
+                  ),
+                  useMaterial3: true,
+                  fontFamily: 'Arial',
+                ),
+                home: const WelcomeScreen(),
+              );
+            }
+          }
+
+          class WelcomeScreen extends StatelessWidget {
+            const WelcomeScreen({super.key});
+
+            @override
+            Widget build(BuildContext context) {
+              return Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  body: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.school_rounded,
+                            size: 100,
+                            color: Color(0xFF6C3FD9),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'المتفوق',
+                            style: TextStyle(
+                              fontSize: 38,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'ركّز اليوم، واصنع مستقبلك',
+                            style: TextStyle(fontSize: 18),
+                          ),
+                          const SizedBox(height: 40),
+                          ElevatedButton(
+                            onPressed: () {},
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 35,
+                                vertical: 14,
+                              ),
+                              child: Text(
+                                'ابدأ رحلتك',
+                                style: TextStyle(fontSize: 18),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }
+          }
+          EOF
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: almutafawiq-apk
+          path: build/app/outputs/flutter-apk/*.apk
