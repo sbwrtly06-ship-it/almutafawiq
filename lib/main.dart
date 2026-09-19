@@ -348,6 +348,16 @@ class _AppsScreenState extends State<AppsScreen> {
     'Telegram': false,
   };
 
+  final blockedPackages = <String, String>{
+    'TikTok': 'com.zhiliaoapp.musically',
+    'Instagram': 'com.instagram.android',
+    'Snapchat': 'com.snapchat.android',
+    'YouTube': 'com.google.android.youtube',
+    'Facebook': 'com.facebook.katana',
+    'WhatsApp': 'com.whatsapp',
+    'Telegram': 'org.telegram.messenger',
+  };
+
   Future<void> start() async {
     final prefs = await SharedPreferences.getInstance();
     final selectedApps = apps.entries
