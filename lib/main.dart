@@ -500,6 +500,11 @@ class _FocusScreenState extends State<FocusScreen> {
     lastDetectedPackage = null;
   }
 
+  Future<void> setFocusMode(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('focus_mode_active', enabled);
+  }
+
   Future<void> checkForegroundApp() async {
     if (!running) return;
 
@@ -564,6 +569,7 @@ class _FocusScreenState extends State<FocusScreen> {
     if (running) {
       timer?.cancel();
       stopMonitoring();
+      await setFocusMode(false);
 
       setState(() => running = false);
       return;
@@ -603,12 +609,14 @@ class _FocusScreenState extends State<FocusScreen> {
 
     setState(() => running = true);
 
+    await setFocusMode(true);
     await startMonitoring();
 
-    timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    timer = Timer.periodic(const Duration(seconds: 1), (_) async {
       if (remainingSeconds <= 1) {
         timer?.cancel();
         stopMonitoring();
+        await setFocusMode(false);
 
         setState(() {
           remainingSeconds = 0;
