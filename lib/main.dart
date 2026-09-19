@@ -25,7 +25,36 @@ class AlMutafawiqApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: purple),
         fontFamily: 'Arial',
       ),
-      home: const WelcomeScreen(),
+      home: const StartupScreen(),
+    );
+  }
+}
+
+class StartupScreen extends StatelessWidget {
+  const StartupScreen({super.key});
+
+  Future<bool> _isSetupComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('setup_complete') ?? false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: _isSetupComplete(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(color: purple),
+            ),
+          );
+        }
+
+        return snapshot.data!
+            ? const HomeScreen()
+            : const WelcomeScreen();
+      },
     );
   }
 }
@@ -354,8 +383,17 @@ class _AppsScreenState extends State<AppsScreen> {
   Future<void> loadInstalledApps() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final savedPackagesText = prefs.getString('blocked_packages');
+      final hasSavedSelection = savedPackagesText != null;
       final savedPackages =
-          prefs.getString('blocked_packages')?.split('|').toSet() ?? {};
+          savedPackagesText?.split('|').toSet() ?? {};
+
+      const defaultBlockedPackages = {
+        'com.zhiliaoapp.musically',
+        'com.instagram.android',
+        'com.snapchat.android',
+        'com.facebook.katana',
+      };
 
       final result = await appsChannel.invokeMethod<List<dynamic>>(
         'getInstalledApps',
@@ -373,7 +411,9 @@ class _AppsScreenState extends State<AppsScreen> {
           final packageName = item['package']?.toString() ?? '';
 
           if (name.isNotEmpty && packageName.isNotEmpty) {
-            loadedApps[name] = savedPackages.contains(packageName);
+            loadedApps[name] = hasSavedSelection
+                ? savedPackages.contains(packageName)
+                : defaultBlockedPackages.contains(packageName);
             loadedPackages[name] = packageName;
             loadedIsGame[name] =
                 item['isGame']?.toString().toLowerCase() == 'true';
@@ -425,6 +465,8 @@ class _AppsScreenState extends State<AppsScreen> {
       'blocked_packages',
       selectedPackages.join('|'),
     );
+
+    await prefs.setBool('setup_complete', true);
 
     if (!mounted) return;
 
