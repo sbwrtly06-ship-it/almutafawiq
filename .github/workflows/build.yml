@@ -187,6 +187,7 @@ jobs:
           import android.app.AppOpsManager
           import android.content.Context
           import android.content.Intent
+          import android.content.pm.PackageManager
           import android.os.Bundle
           import android.os.Process
           import android.provider.Settings
@@ -228,6 +229,10 @@ jobs:
                               result.success(getForegroundPackage())
                           }
 
+                          "getInstalledApps" -> {
+                              result.success(getInstalledApps())
+                          }
+
                           else -> {
                               result.notImplemented()
                           }
@@ -246,6 +251,38 @@ jobs:
                   )
 
                   return mode == AppOpsManager.MODE_ALLOWED
+              }
+
+              private fun getInstalledApps(): List<Map<String, String>> {
+                  val packageManager = packageManager
+
+                  val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
+                      addCategory(Intent.CATEGORY_LAUNCHER)
+                  }
+
+                  val launchablePackages = packageManager
+                      .queryIntentActivities(launcherIntent, 0)
+                      .map { it.activityInfo.packageName }
+                      .toSet()
+
+                  val apps = packageManager.getInstalledApplications(
+                      PackageManager.GET_META_DATA
+                  )
+
+                  return apps
+                      .filter {
+                          it.packageName != packageName &&
+                          launchablePackages.contains(it.packageName)
+                      }
+                      .map {
+                          mapOf(
+                              "name" to packageManager.getApplicationLabel(it).toString(),
+                              "package" to it.packageName,
+                              "category" to it.category.toString(),
+                              "isGame" to (it.category == android.content.pm.ApplicationInfo.CATEGORY_GAME).toString()
+                          )
+                      }
+                      .sortedBy { it["name"]?.lowercase() }
               }
 
               private fun getForegroundPackage(): String? {

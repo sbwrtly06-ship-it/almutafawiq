@@ -338,25 +338,74 @@ class AppsScreen extends StatefulWidget {
 }
 
 class _AppsScreenState extends State<AppsScreen> {
-  final apps = <String, bool>{
-    'TikTok': true,
-    'Instagram': true,
-    'Snapchat': true,
-    'YouTube': false,
-    'Facebook': true,
-    'WhatsApp': false,
-    'Telegram': false,
-  };
+  static const appsChannel = MethodChannel('almutafawiq/usage');
 
-  final blockedPackages = <String, String>{
-    'TikTok': 'com.zhiliaoapp.musically',
-    'Instagram': 'com.instagram.android',
-    'Snapchat': 'com.snapchat.android',
-    'YouTube': 'com.google.android.youtube',
-    'Facebook': 'com.facebook.katana',
-    'WhatsApp': 'com.whatsapp',
-    'Telegram': 'org.telegram.messenger',
-  };
+  final apps = <String, bool>{};
+  final appPackages = <String, String>{};
+  final appIsGame = <String, bool>{};
+  bool loadingApps = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadInstalledApps();
+  }
+
+  Future<void> loadInstalledApps() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedPackages =
+          prefs.getString('blocked_packages')?.split('|').toSet() ?? {};
+
+      final result = await appsChannel.invokeMethod<List<dynamic>>(
+        'getInstalledApps',
+      );
+
+      final installedApps = result ?? [];
+
+      final loadedApps = <String, bool>{};
+      final loadedPackages = <String, String>{};
+      final loadedIsGame = <String, bool>{};
+
+      for (final item in installedApps) {
+        if (item is Map) {
+          final name = item['name']?.toString() ?? '';
+          final packageName = item['package']?.toString() ?? '';
+
+          if (name.isNotEmpty && packageName.isNotEmpty) {
+            loadedApps[name] = savedPackages.contains(packageName);
+            loadedPackages[name] = packageName;
+            loadedIsGame[name] =
+                item['isGame']?.toString().toLowerCase() == 'true';
+          }
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        apps
+          ..clear()
+          ..addAll(loadedApps);
+
+        appPackages
+          ..clear()
+          ..addAll(loadedPackages);
+
+        appIsGame
+          ..clear()
+          ..addAll(loadedIsGame);
+
+        loadingApps = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        loadingApps = false;
+      });
+    }
+  }
 
   Future<void> start() async {
     final prefs = await SharedPreferences.getInstance();
@@ -368,7 +417,7 @@ class _AppsScreenState extends State<AppsScreen> {
     await prefs.setStringList('blocked_apps', selectedApps);
 
     final selectedPackages = selectedApps
-        .map((name) => blockedPackages[name] ?? '')
+        .map((name) => appPackages[name] ?? '')
         .where((packageName) => packageName.isNotEmpty)
         .toList();
 
@@ -408,19 +457,65 @@ class _AppsScreenState extends State<AppsScreen> {
             style: TextStyle(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 15),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'التطبيقات والألعاب المثبتة',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'تحديث القائمة',
+                onPressed: loadingApps
+                    ? null
+                    : () {
+                        setState(() {
+                          loadingApps = true;
+                        });
+                        loadInstalledApps();
+                      },
+                icon: const Icon(Icons.refresh, color: purple),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
           Expanded(
-            child: ListView(
-              children: apps.keys.map((app) {
-                return SwitchListTile(
-                  title: Text(app),
-                  secondary: const Icon(Icons.apps, color: purple),
-                  value: apps[app]!,
-                  onChanged: (value) {
-                    setState(() => apps[app] = value);
-                  },
-                );
-              }).toList(),
-            ),
+            child: loadingApps
+                ? const Center(
+                    child: CircularProgressIndicator(color: purple),
+                  )
+                : apps.isEmpty
+                    ? const Center(
+                        child: Text(
+                          'لم يتم العثور على تطبيقات أو ألعاب قابلة للتشغيل',
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    : ListView(
+                        children: apps.keys.map((app) {
+                          final packageName = appPackages[app] ?? '';
+                          final isGame = appIsGame[app] ?? false;
+
+                          return SwitchListTile(
+                            title: Text(app),
+                            subtitle: Text(
+                              isGame ? '🎮 لعبة' : '📱 تطبيق',
+                            ),
+                            secondary: Icon(
+                              isGame ? Icons.sports_esports : Icons.apps,
+                              color: purple,
+                            ),
+                            value: apps[app]!,
+                            onChanged: (value) {
+                              setState(() => apps[app] = value);
+                            },
+                          );
+                        }).toList(),
+                      ),
           ),
           Text(
             'تم اختيار $count تطبيقات',
