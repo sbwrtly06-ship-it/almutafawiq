@@ -46,6 +46,19 @@ jobs:
 
               private var overlay: TextView? = null
 
+              override fun onServiceConnected() {
+                  super.onServiceConnected()
+
+                  serviceInfo = serviceInfo.apply {
+                      eventTypes =
+                          AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                          AccessibilityEvent.TYPE_WINDOWS_CHANGED or
+                          AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+
+                      notificationTimeout = 50
+                  }
+              }
+
               override fun onAccessibilityEvent(event: AccessibilityEvent?) {
                   if (event == null) return
 
@@ -131,10 +144,10 @@ jobs:
           <?xml version="1.0" encoding="utf-8"?>
           <accessibility-service
               xmlns:android="http://schemas.android.com/apk/res/android"
-              android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged"
+              android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged|typeWindowContentChanged"
               android:accessibilityFeedbackType="feedbackGeneric"
               android:notificationTimeout="50"
-              android:accessibilityFlags="flagDefault" />
+              android:accessibilityFlags="flagDefault|flagReportViewIds" />
           EOF
 
       - name: Add Usage Access permission
