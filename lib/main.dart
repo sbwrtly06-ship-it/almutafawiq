@@ -642,6 +642,20 @@ class _FocusScreenState extends State<FocusScreen> {
   Future<void> startMonitoring() async {
     monitorTimer?.cancel();
 
+    final prefs = await SharedPreferences.getInstance();
+    final savedPackages =
+        prefs.getString('blocked_packages')?.split('|') ?? [];
+
+    blockedPackages
+      ..clear();
+
+    for (final packageName in savedPackages) {
+      final package = packageName.trim();
+      if (package.isNotEmpty) {
+        blockedPackages[package] = package;
+      }
+    }
+
     monitorTimer = Timer.periodic(
       const Duration(seconds: 3),
       (_) => checkForegroundApp(),
@@ -680,7 +694,9 @@ class _FocusScreenState extends State<FocusScreen> {
         }
       }
 
-      if (detectedName == null) return;
+      if (detectedName == null) {
+        detectedName = package;
+      }
 
       // لا نسجل التطبيق نفسه عدة مرات متتالية.
       if (lastDetectedPackage == package) return;
