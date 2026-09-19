@@ -63,6 +63,7 @@ jobs:
                           ?: emptySet()
 
                   if (focusActive && packageName in blockedPackages) {
+                      performGlobalAction(GLOBAL_ACTION_BACK)
                       showBlockOverlay()
                   } else {
                       removeBlockOverlay()
