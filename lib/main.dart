@@ -350,11 +350,18 @@ class _AppsScreenState extends State<AppsScreen> {
 
   Future<void> start() async {
     final prefs = await SharedPreferences.getInstance();
+    final selectedApps = apps.entries
+        .where((e) => e.value)
+        .map((e) => e.key)
+        .toList();
+
+    await prefs.setStringList('blocked_apps', selectedApps);
+
     await prefs.setStringList(
-      'blocked_apps',
-      apps.entries
-          .where((e) => e.value)
-          .map((e) => e.key)
+      'blocked_packages',
+      selectedApps
+          .map((name) => blockedPackages[name] ?? '')
+          .where((packageName) => packageName.isNotEmpty)
           .toList(),
     );
 
