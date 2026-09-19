@@ -26,6 +26,110 @@ jobs:
       - name: Create Android platform
         run: flutter create --platforms=android --org com.almutafawiq .
 
+      - name: Add Accessibility blocking service
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/almutafawiq/almutafawiq
+          mkdir -p android/app/src/main/res/xml
+
+          cat > android/app/src/main/kotlin/com/almutafawiq/almutafawiq/AppBlockAccessibilityService.kt <<'EOF'
+          package com.almutafawiq.almutafawiq
+
+          import android.accessibilityservice.AccessibilityService
+          import android.graphics.Color
+          import android.graphics.PixelFormat
+          import android.view.Gravity
+          import android.view.WindowManager
+          import android.view.accessibility.AccessibilityEvent
+          import android.widget.TextView
+
+          class AppBlockAccessibilityService : AccessibilityService() {
+
+              private var overlay: TextView? = null
+
+              override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+                  if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+
+                  val packageName = event.packageName?.toString() ?: return
+                  val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+
+                  val focusActive =
+                      prefs.getBoolean("flutter.focus_mode_active", false)
+
+                  val blockedPackages =
+                      prefs.getString("flutter.blocked_packages", "")
+                          ?.split("|")
+                          ?.filter { it.isNotBlank() }
+                          ?.toSet()
+                          ?: emptySet()
+
+                  if (focusActive && packageName in blockedPackages) {
+                      showBlockOverlay()
+                  } else {
+                      removeBlockOverlay()
+                  }
+              }
+
+              private fun showBlockOverlay() {
+                  if (overlay != null) return
+
+                  val text = TextView(this).apply {
+                      text = "🔒\n\nهذا التطبيق محظور أثناء جلسة التركيز\n\nارجع إلى الدراسة في تطبيق المتفوق"
+                      textSize = 22f
+                      setTextColor(Color.WHITE)
+                      setBackgroundColor(Color.rgb(35, 25, 55))
+                      gravity = Gravity.CENTER
+                      setPadding(40, 40, 40, 40)
+                  }
+
+                  val params = WindowManager.LayoutParams(
+                      WindowManager.LayoutParams.MATCH_PARENT,
+                      WindowManager.LayoutParams.MATCH_PARENT,
+                      WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                      WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                      PixelFormat.TRANSLUCENT
+                  )
+
+                  val windowManager =
+                      getSystemService(WINDOW_SERVICE) as WindowManager
+
+                  windowManager.addView(text, params)
+                  overlay = text
+              }
+
+              private fun removeBlockOverlay() {
+                  val view = overlay ?: return
+                  val windowManager =
+                      getSystemService(WINDOW_SERVICE) as WindowManager
+
+                  try {
+                      windowManager.removeView(view)
+                  } catch (_: Exception) {
+                  }
+
+                  overlay = null
+              }
+
+              override fun onInterrupt() {
+                  removeBlockOverlay()
+              }
+
+              override fun onDestroy() {
+                  removeBlockOverlay()
+                  super.onDestroy()
+              }
+          }
+          EOF
+
+          cat > android/app/src/main/res/xml/accessibility_service_config.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <accessibility-service
+              xmlns:android="http://schemas.android.com/apk/res/android"
+              android:accessibilityEventTypes="typeWindowStateChanged"
+              android:accessibilityFeedbackType="feedbackGeneric"
+              android:notificationTimeout="100"
+              android:flags="flagDefault" />
+          EOF
+
       - name: Add Usage Access permission
         run: |
           python3 - <<'PY'
@@ -51,6 +155,23 @@ jobs:
                   '<application',
                   permission + '\n    <application'
               )
+
+          service = '''
+              <service
+                  android:name=".AppBlockAccessibilityService"
+                  android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+                  android:exported="true">
+                  <intent-filter>
+                      <action android:name="android.accessibilityservice.AccessibilityService" />
+                  </intent-filter>
+                  <meta-data
+                      android:name="android.accessibilityservice"
+                      android:resource="@xml/accessibility_service_config" />
+              </service>
+          '''
+
+          if "AppBlockAccessibilityService" not in text:
+              text = text.replace("</application>", service + "\n    </application>")
 
           path.write_text(text)
           PY

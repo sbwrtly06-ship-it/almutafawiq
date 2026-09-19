@@ -357,12 +357,14 @@ class _AppsScreenState extends State<AppsScreen> {
 
     await prefs.setStringList('blocked_apps', selectedApps);
 
-    await prefs.setStringList(
+    final selectedPackages = selectedApps
+        .map((name) => blockedPackages[name] ?? '')
+        .where((packageName) => packageName.isNotEmpty)
+        .toList();
+
+    await prefs.setString(
       'blocked_packages',
-      selectedApps
-          .map((name) => blockedPackages[name] ?? '')
-          .where((packageName) => packageName.isNotEmpty)
-          .toList(),
+      selectedPackages.join('|'),
     );
 
     if (!mounted) return;
