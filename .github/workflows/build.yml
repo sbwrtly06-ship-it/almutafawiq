@@ -47,7 +47,13 @@ jobs:
               private var overlay: TextView? = null
 
               override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-                  if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+                  if (event == null) return
+
+                  val type = event.eventType
+                  if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+                      type != AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+                      return
+                  }
 
                   val packageName = event.packageName?.toString() ?: return
                   val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
