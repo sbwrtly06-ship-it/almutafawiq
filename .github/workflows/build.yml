@@ -63,8 +63,8 @@ jobs:
                           ?: emptySet()
 
                   if (focusActive && packageName in blockedPackages) {
-                      performGlobalAction(GLOBAL_ACTION_BACK)
-                      showBlockOverlay()
+                      // إخراج المستخدم فورًا من التطبيق المحظور.
+                      performGlobalAction(GLOBAL_ACTION_HOME)
                   } else {
                       removeBlockOverlay()
                   }
