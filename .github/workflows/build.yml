@@ -127,7 +127,7 @@ jobs:
               android:accessibilityEventTypes="typeWindowStateChanged"
               android:accessibilityFeedbackType="feedbackGeneric"
               android:notificationTimeout="100"
-              android:flags="flagDefault" />
+              android:accessibilityFlags="flagDefault" />
           EOF
 
       - name: Add Usage Access permission
