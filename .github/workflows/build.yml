@@ -68,7 +68,16 @@ jobs:
                       return
                   }
 
-                  val packageName = event.packageName?.toString() ?: return
+                  val eventPackage = event.packageName?.toString()
+
+                  val activePackage = try {
+                      rootInActiveWindow?.packageName?.toString()
+                  } catch (_: Exception) {
+                      null
+                  }
+
+                  val packageName = eventPackage ?: activePackage ?: return
+
                   val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
 
                   val focusActive =
