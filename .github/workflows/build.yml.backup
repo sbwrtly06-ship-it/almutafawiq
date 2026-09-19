@@ -1,0 +1,171 @@
+
+
+name: Build AlMutafawiq APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get source
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.7'
+          channel: stable
+          cache: true
+
+      - name: Create Android platform
+        run: flutter create --platforms=android --org com.almutafawiq .
+
+      - name: Add Usage Access permission
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          text = path.read_text()
+
+          text = text.replace(
+              '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+              '<manifest xmlns:android="http://schemas.android.com/apk/res/android" '
+              'xmlns:tools="http://schemas.android.com/tools">'
+          )
+
+          permission = '''
+              <uses-permission
+                  android:name="android.permission.PACKAGE_USAGE_STATS"
+                  tools:ignore="ProtectedPermissions" />
+          '''
+
+          if "PACKAGE_USAGE_STATS" not in text:
+              text = text.replace(
+                  '<application',
+                  permission + '\n    <application'
+              )
+
+          path.write_text(text)
+          PY
+
+      - name: Add native Usage Access bridge
+        run: |
+          mkdir -p android/app/src/main/kotlin/com/almutafawiq/almutafawiq
+
+          cat > android/app/src/main/kotlin/com/almutafawiq/almutafawiq/MainActivity.kt <<'EOF'
+          package com.almutafawiq.almutafawiq
+
+          import android.app.AppOpsManager
+          import android.content.Context
+          import android.content.Intent
+          import android.os.Bundle
+          import android.os.Process
+          import android.provider.Settings
+          import android.app.usage.UsageEvents
+          import android.app.usage.UsageStatsManager
+          import io.flutter.embedding.android.FlutterActivity
+          import io.flutter.embedding.engine.FlutterEngine
+          import io.flutter.plugin.common.MethodChannel
+
+          class MainActivity : FlutterActivity() {
+
+              private val CHANNEL = "almutafawiq/usage"
+
+              override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+                  super.configureFlutterEngine(flutterEngine)
+
+                  MethodChannel(
+                      flutterEngine.dartExecutor.binaryMessenger,
+                      CHANNEL
+                  ).setMethodCallHandler { call, result ->
+
+                      when (call.method) {
+
+                          "openUsageAccessSettings" -> {
+                              try {
+                                  val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                                  startActivity(intent)
+                                  result.success(true)
+                              } catch (e: Exception) {
+                                  result.error("SETTINGS_ERROR", e.message, null)
+                              }
+                          }
+
+                          "hasUsageAccess" -> {
+                              result.success(hasUsageAccess())
+                          }
+
+                          "getForegroundPackage" -> {
+                              result.success(getForegroundPackage())
+                          }
+
+                          else -> {
+                              result.notImplemented()
+                          }
+                      }
+                  }
+              }
+
+              private fun hasUsageAccess(): Boolean {
+                  val appOps =
+                      getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+
+                  val mode = appOps.checkOpNoThrow(
+                      AppOpsManager.OPSTR_GET_USAGE_STATS,
+                      Process.myUid(),
+                      packageName
+                  )
+
+                  return mode == AppOpsManager.MODE_ALLOWED
+              }
+
+              private fun getForegroundPackage(): String? {
+                  if (!hasUsageAccess()) return null
+
+                  val usageStatsManager =
+                      getSystemService(Context.USAGE_STATS_SERVICE)
+                              as UsageStatsManager
+
+                  val end = System.currentTimeMillis()
+                  val start = end - 60_000
+
+                  val events = usageStatsManager.queryEvents(start, end)
+                  val event = UsageEvents.Event()
+
+                  var latestPackage: String? = null
+                  var latestTime = 0L
+
+                  while (events.hasNextEvent()) {
+                      events.getNextEvent(event)
+
+                      if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                          if (event.timeStamp > latestTime) {
+                              latestTime = event.timeStamp
+                              latestPackage = event.packageName
+                          }
+                      }
+                  }
+
+                  return latestPackage
+              }
+          }
+          EOF
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release --split-per-abi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: almutafawiq-apk
+          path: build/app/outputs/flutter-apk/*.apk
