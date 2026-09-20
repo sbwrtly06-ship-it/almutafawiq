@@ -62,84 +62,180 @@ class StartupScreen extends StatelessWidget {
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
+  void _start(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const RegisterScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF9F7F1),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                const Spacer(),
-                Container(
-                  width: 150,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: lightPurple,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text('🎓', style: TextStyle(fontSize: 85)),
-                  ),
-                ),
-                const SizedBox(height: 25),
-                const Text(
-                  'المتفوق',
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: navy,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'ركّز اليوم، واصنع مستقبلك',
-                  style: TextStyle(
-                    fontSize: 19,
-                    color: purple,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'تطبيق يساعدك على تنظيم وقت دراستك، '
-                  'زيادة تركيزك، ومتابعة تقدمك يومًا بعد يوم.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.black54,
-                    height: 1.6,
-                  ),
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  height: 58,
-                  child: FilledButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RegisterScreen(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const NeverScrollableScrollPhysics(),
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  height: constraints.maxHeight,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+
+                      // الشعار
+                      const Text(
+                        'المتفوق',
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w900,
+                          color: navy,
+                          height: 1,
                         ),
-                      );
-                    },
-                    child: const Text(
-                      'ابدأ رحلتك',
-                      style: TextStyle(fontSize: 19),
-                    ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      const Text(
+                        'طريقك نحو التفوق يبدأ من هنا',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: navy,
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // الصورة الرئيسية
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 25,
+                          ),
+                          child: Image.asset(
+                            'assets/images/welcome.jpg',
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  size: 70,
+                                  color: Colors.grey,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      // زر البدء
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 58,
+                          child: FilledButton(
+                            onPressed: () => _start(context),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: navy,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Text(
+                                  'ابدأ رحلتك الآن',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                Icon(
+                                  Icons.arrow_forward,
+                                  color: gold,
+                                  size: 27,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      // تسجيل الدخول
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'تسجيل الدخول سيكون متاحًا قريبًا',
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.person_outline,
+                              color: navy,
+                            ),
+                            label: const Text(
+                              'تسجيل الدخول',
+                              style: TextStyle(
+                                fontSize: 18,
+                                color: navy,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(
+                                color: Color(0xFFD9D6CF),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(28),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 5),
+
+                      TextButton(
+                        onPressed: () => _start(context),
+                        child: const Text(
+                          'إنشاء حساب جديد',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Color(0xFF5275B8),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 18),
-                const Text(
-                  'المطور / المرتضى مسعّد',
-                  style: TextStyle(color: Colors.black45),
-                ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
