@@ -62,83 +62,89 @@ class StartupScreen extends StatelessWidget {
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
+  void _openRegister(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const RegisterScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF9F7F2),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                const Spacer(),
-                Container(
-                  width: 150,
-                  height: 150,
-                  decoration: BoxDecoration(
-                    color: lightPurple,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text('🎓', style: TextStyle(fontSize: 85)),
-                  ),
-                ),
-                const SizedBox(height: 25),
-                const Text(
-                  'المتفوق',
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: navy,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'ركّز اليوم، واصنع مستقبلك',
-                  style: TextStyle(
-                    fontSize: 19,
-                    color: purple,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'تطبيق يساعدك على تنظيم وقت دراستك، '
-                  'زيادة تركيزك، ومتابعة تقدمك يومًا بعد يوم.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.black54,
-                    height: 1.6,
-                  ),
-                ),
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  height: 58,
-                  child: FilledButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RegisterScreen(),
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  final h = constraints.maxHeight;
+
+                  return Stack(
+                    children: [
+                      Positioned.fill(
+                        child: Image.asset(
+                          'assets/images/welcome.jpg',
+                          fit: BoxFit.fill,
                         ),
-                      );
-                    },
-                    child: const Text(
-                      'ابدأ رحلتك',
-                      style: TextStyle(fontSize: 19),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'المطور / المرتضى مسعّد',
-                  style: TextStyle(color: Colors.black45),
-                ),
-              ],
+                      ),
+
+                      // زر «ابدأ رحلتك الآن»
+                      Positioned(
+                        left: w * 0.22,
+                        right: w * 0.22,
+                        top: h * 0.765,
+                        height: h * 0.075,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () => _openRegister(context),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+
+                      // «تسجيل الدخول»
+                      Positioned(
+                        left: w * 0.22,
+                        right: w * 0.22,
+                        top: h * 0.84,
+                        height: h * 0.055,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'تسجيل الدخول سيكون متاحًا قريبًا',
+                                ),
+                              ),
+                            );
+                          },
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+
+                      // «إنشاء حساب جديد»
+                      Positioned(
+                        left: w * 0.25,
+                        right: w * 0.25,
+                        top: h * 0.895,
+                        height: h * 0.055,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: () => _openRegister(context),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ),
