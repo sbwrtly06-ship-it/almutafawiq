@@ -87,6 +87,11 @@ jobs:
                       "package=$packageName focus=$focusActive blocked=$blockedPackages"
                   )
 
+                  prefs.edit()
+                      .putString("flutter.accessibility_last_package", packageName)
+                      .putBoolean("flutter.accessibility_service_seen", true)
+                      .apply()
+
                   if (!focusActive) {
                       return
                   }
