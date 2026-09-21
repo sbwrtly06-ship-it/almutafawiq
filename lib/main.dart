@@ -422,7 +422,8 @@ class _AppsScreenState extends State<AppsScreen> {
 
           if (name.isNotEmpty && packageName.isNotEmpty) {
             loadedApps[name] = hasSavedSelection
-                ? savedPackages.contains(packageName)
+                ? savedPackages.contains(packageName) ||
+                    defaultBlockedPackages.contains(packageName)
                 : defaultBlockedPackages.contains(packageName);
             loadedPackages[name] = packageName;
             loadedIsGame[name] =
