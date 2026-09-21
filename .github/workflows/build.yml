@@ -178,6 +178,8 @@ jobs:
               <uses-permission
                   android:name="android.permission.PACKAGE_USAGE_STATS"
                   tools:ignore="ProtectedPermissions" />
+              <uses-permission
+                  android:name="android.permission.QUERY_ALL_PACKAGES" />
           '''
 
           if "PACKAGE_USAGE_STATS" not in text:
@@ -285,47 +287,24 @@ jobs:
               private fun getInstalledApps(): List<Map<String, String>> {
                   val pm = packageManager
 
-                  val socialPackages = setOf(
-                      "com.zhiliaoapp.musically",
-                      "com.instagram.android",
-                      "com.snapchat.android",
-                      "com.facebook.katana",
-                      "com.google.android.youtube",
-                      "com.whatsapp",
-                      "org.telegram.messenger",
-                      "com.twitter.android"
-                  )
+                  val result = mutableListOf<Map<String, String>>()
+                  val seen = mutableSetOf<String>()
 
-                  val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
+                  val intent = Intent(Intent.ACTION_MAIN).apply {
                       addCategory(Intent.CATEGORY_LAUNCHER)
                   }
 
-                  val launchable = pm.queryIntentActivities(
-                      launcherIntent,
+                  val activities = pm.queryIntentActivities(
+                      intent,
                       PackageManager.MATCH_ALL
                   )
 
-                  val packages = mutableSetOf<String>()
+                  for (info in activities) {
+                      val appInfo = info.activityInfo?.applicationInfo ?: continue
+                      val pkg = appInfo.packageName
 
-                  for (info in launchable) {
-                      val pkg = info.activityInfo?.applicationInfo?.packageName
-                      if (!pkg.isNullOrEmpty()) {
-                          packages.add(pkg)
-                      }
-                  }
-
-                  packages.addAll(socialPackages)
-
-                  val result = mutableListOf<Map<String, String>>()
-
-                  for (pkg in packages) {
                       if (pkg == packageName) continue
-
-                      val appInfo = try {
-                          pm.getApplicationInfo(pkg, PackageManager.MATCH_ALL)
-                      } catch (_: Exception) {
-                          null
-                      } ?: continue
+                      if (!seen.add(pkg)) continue
 
                       val label = pm.getApplicationLabel(appInfo).toString()
 
