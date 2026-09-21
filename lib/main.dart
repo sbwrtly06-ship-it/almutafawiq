@@ -696,20 +696,14 @@ class _FocusScreenState extends State<FocusScreen> {
 
       if (package == null) return;
 
-      String? detectedName;
-
-      for (final entry in blockedPackages.entries) {
-        if (package == entry.value) {
-          detectedName = entry.key;
-          break;
-        }
+      // نتدخل فقط إذا كان التطبيق من التطبيقات التي اختارها المستخدم.
+      if (!blockedPackages.containsKey(package)) {
+        return;
       }
 
-      if (detectedName == null) {
-        detectedName = package;
-      }
+      final detectedName = package;
 
-      // لا نسجل التطبيق نفسه عدة مرات متتالية.
+      // لا نسجل أو نعيد المستخدم عدة مرات متتالية لنفس التطبيق.
       if (lastDetectedPackage == package) return;
 
       lastDetectedPackage = package;
@@ -731,12 +725,17 @@ class _FocusScreenState extends State<FocusScreen> {
       names.add(detectedName);
       await prefs.setStringList(namesKey, names);
 
+      // إعادة المستخدم إلى تطبيق المتفوق.
+      try {
+        await usageChannel.invokeMethod<bool>('bringAppToFront');
+      } catch (_) {}
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'تم تسجيل محاولة تشتت: $detectedName',
+            'تم منع محاولة فتح تطبيق مشتت: $detectedName',
           ),
           duration: const Duration(seconds: 2),
         ),
