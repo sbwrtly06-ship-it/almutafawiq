@@ -370,7 +370,12 @@ class _StudyTimeScreenState extends State<StudyTimeScreen> {
 }
 
 class AppsScreen extends StatefulWidget {
-  const AppsScreen({super.key});
+  final bool forFocusSession;
+
+  const AppsScreen({
+    super.key,
+    this.forFocusSession = false,
+  });
 
   @override
   State<AppsScreen> createState() => _AppsScreenState();
@@ -422,8 +427,7 @@ class _AppsScreenState extends State<AppsScreen> {
 
           if (name.isNotEmpty && packageName.isNotEmpty) {
             loadedApps[name] = hasSavedSelection
-                ? savedPackages.contains(packageName) ||
-                    defaultBlockedPackages.contains(packageName)
+                ? savedPackages.contains(packageName)
                 : defaultBlockedPackages.contains(packageName);
             loadedPackages[name] = packageName;
             loadedIsGame[name] =
@@ -477,13 +481,19 @@ class _AppsScreenState extends State<AppsScreen> {
       selectedPackages.join('|'),
     );
 
-    await prefs.setBool('setup_complete', true);
+    if (!widget.forFocusSession) {
+      await prefs.setBool('setup_complete', true);
+    }
 
     if (!mounted) return;
 
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      MaterialPageRoute(
+        builder: (_) => widget.forFocusSession
+            ? const FocusScreen()
+            : const HomeScreen(),
+      ),
     );
   }
 
@@ -1196,7 +1206,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const FocusScreen(),
+                        builder: (_) => const AppsScreen(
+                          forFocusSession: true,
+                        ),
                       ),
                     );
                     loadStats();
