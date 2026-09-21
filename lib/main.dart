@@ -1007,6 +1007,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String studentName = 'الطالب';
   int goalMinutes = 120;
   int studiedMinutes = 0;
+  int distractionAttempts = 0;
 
   @override
   void initState() {
@@ -1019,10 +1020,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
 
+    final now = DateTime.now();
+    final dateKey =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+
+    final todayDistractionAttempts =
+        prefs.getInt('distraction_attempts_$dateKey') ?? 0;
+
     setState(() {
       studentName = prefs.getString('student_name') ?? 'الطالب';
       goalMinutes = prefs.getInt('daily_goal_minutes') ?? 120;
       studiedMinutes = prefs.getInt('completed_focus_minutes') ?? 0;
+      distractionAttempts = todayDistractionAttempts;
     });
   }
 
@@ -1144,6 +1154,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 12),
+
+              _StatCard(
+                icon: Icons.block_rounded,
+                title: 'محاولات التشتت',
+                value: '$distractionAttempts',
+                unit: 'محاولة',
               ),
 
               const SizedBox(height: 20),
