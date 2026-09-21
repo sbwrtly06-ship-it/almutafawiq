@@ -61,6 +61,7 @@ jobs:
           package com.almutafawiq.almutafawiq
 
           import android.accessibilityservice.AccessibilityService
+          import android.content.pm.PackageManager
           import android.os.Handler
           import android.os.Looper
           import android.util.Log
