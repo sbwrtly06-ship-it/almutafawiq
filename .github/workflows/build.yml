@@ -306,7 +306,6 @@ jobs:
                       }
                   }
 
-                  // نضيف تطبيقات التواصل حتى لو لم تظهر في نتيجة Launcher.
                   packages.addAll(socialPackages)
 
                   val result = mutableListOf<Map<String, String>>()
