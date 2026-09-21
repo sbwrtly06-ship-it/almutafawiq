@@ -91,7 +91,10 @@ jobs:
                           ?: emptySet()
 
                   if (focusActive && packageName in blockedPackages) {
-                      // إخراج المستخدم فورًا من التطبيق المحظور.
+                      // إظهار رسالة الحظر ثم إخراج المستخدم من التطبيق المشتت.
+                      showBlockOverlay()
+
+                      // العودة إلى الشاشة الرئيسية.
                       performGlobalAction(GLOBAL_ACTION_HOME)
                   } else {
                       removeBlockOverlay()
@@ -344,6 +347,17 @@ jobs:
               }
           }
           EOF
+
+      - name: Verify Flutter assets
+        run: |
+          echo "Checking onboarding assets..."
+          test -f assets/images/welcome.jpg
+          test -f assets/images/register.jpg
+          test -f assets/images/duration.jpg
+          test -f assets/images/study_time.jpg
+          test -f assets/images/apps.jpg
+          grep -q "assets/images/" pubspec.yaml
+          echo "All onboarding assets are present."
 
       - name: Get dependencies
         run: flutter pub get
