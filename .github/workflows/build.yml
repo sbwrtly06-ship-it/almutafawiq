@@ -147,6 +147,25 @@ jobs:
               'xmlns:tools="http://schemas.android.com/tools">'
           )
 
+          queries = '''
+              <queries>
+                  <package android:name="com.zhiliaoapp.musically" />
+                  <package android:name="com.instagram.android" />
+                  <package android:name="com.snapchat.android" />
+                  <package android:name="com.facebook.katana" />
+                  <package android:name="com.google.android.youtube" />
+                  <package android:name="com.whatsapp" />
+                  <package android:name="org.telegram.messenger" />
+              </queries>
+          '''
+
+          if "<queries>" not in text:
+              text = text.replace(
+                  'xmlns:tools="http://schemas.android.com/tools">',
+                  'xmlns:tools="http://schemas.android.com/tools">\n' + queries,
+                  1
+              )
+
           permission = '''
               <uses-permission
                   android:name="android.permission.PACKAGE_USAGE_STATS"
@@ -256,35 +275,63 @@ jobs:
               }
 
               private fun getInstalledApps(): List<Map<String, String>> {
-                  val packageManager = packageManager
+                  val pm = packageManager
+                  val seen = mutableSetOf<String>()
+                  val result = mutableListOf<Map<String, String>>()
+
+                  fun addPackage(pkg: String) {
+                      if (pkg == packageName) return
+                      if (!seen.add(pkg)) return
+
+                      try {
+                          val appInfo = pm.getApplicationInfo(pkg, 0)
+                          val label = pm.getApplicationLabel(appInfo).toString()
+
+                          result.add(
+                              mapOf(
+                                  "name" to label,
+                                  "package" to pkg,
+                                  "category" to appInfo.category.toString(),
+                                  "isGame" to (
+                                      appInfo.category ==
+                                          android.content.pm.ApplicationInfo.CATEGORY_GAME
+                                  ).toString()
+                              )
+                          )
+                      } catch (_: Exception) {
+                          // التطبيق غير مثبت
+                      }
+                  }
+
+                  val socialPackages = listOf(
+                      "com.zhiliaoapp.musically",
+                      "com.instagram.android",
+                      "com.snapchat.android",
+                      "com.facebook.katana",
+                      "com.google.android.youtube",
+                      "com.whatsapp",
+                      "org.telegram.messenger"
+                  )
+
+                  socialPackages.forEach { addPackage(it) }
 
                   val launcherIntent = Intent(Intent.ACTION_MAIN).apply {
                       addCategory(Intent.CATEGORY_LAUNCHER)
                   }
 
-                  val launchablePackages = packageManager
-                      .queryIntentActivities(launcherIntent, 0)
-                      .map { it.activityInfo.packageName }
-                      .toSet()
-
-                  val apps = packageManager.getInstalledApplications(
-                      PackageManager.GET_META_DATA
+                  val launchable = pm.queryIntentActivities(
+                      launcherIntent,
+                      PackageManager.MATCH_ALL
                   )
 
-                  return apps
-                      .filter {
-                          it.packageName != packageName &&
-                          launchablePackages.contains(it.packageName)
-                      }
-                      .map {
-                          mapOf(
-                              "name" to packageManager.getApplicationLabel(it).toString(),
-                              "package" to it.packageName,
-                              "category" to it.category.toString(),
-                              "isGame" to (it.category == android.content.pm.ApplicationInfo.CATEGORY_GAME).toString()
-                          )
-                      }
-                      .sortedBy { it["name"]?.lowercase() }
+                  for (info in launchable) {
+                      val appInfo = info.activityInfo?.applicationInfo ?: continue
+                      addPackage(appInfo.packageName)
+                  }
+
+                  return result.sortedBy {
+                      it["name"]?.lowercase() ?: ""
+                  }
               }
 
               private fun getForegroundPackage(): String? {
