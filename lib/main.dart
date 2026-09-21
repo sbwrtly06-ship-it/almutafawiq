@@ -65,178 +65,92 @@ class WelcomeScreen extends StatelessWidget {
   void _start(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const RegisterScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const RegisterScreen()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF9F7F1),
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                physics: const NeverScrollableScrollPhysics(),
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  height: constraints.maxHeight,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 10),
-
-                      // الشعار
-                      const Text(
-                        'المتفوق',
-                        style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w900,
-                          color: navy,
-                          height: 1,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      const Text(
-                        'طريقك نحو التفوق يبدأ من هنا',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: navy,
-                        ),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // الصورة الرئيسية
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 25,
-                          ),
-                          child: Image.asset(
-                            'assets/images/welcome.jpg',
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) {
-                              return const Center(
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  size: 70,
-                                  color: Colors.grey,
-                                ),
-                              );
-                            },
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F5EF),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/welcome.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const ColoredBox(
+                        color: Color(0xFFF8F5EF),
+                        child: Center(
+                          child: Icon(
+                            Icons.image_not_supported,
+                            size: 70,
+                            color: Colors.grey,
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      // زر البدء
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 58,
-                          child: FilledButton(
-                            onPressed: () => _start(context),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: navy,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
-                                Text(
-                                  'ابدأ رحلتك الآن',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(width: 12),
-                                Icon(
-                                  Icons.arrow_forward,
-                                  color: gold,
-                                  size: 27,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // تسجيل الدخول
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'تسجيل الدخول سيكون متاحًا قريبًا',
-                                  ),
-                                ),
-                              );
-                            },
-                            icon: const Icon(
-                              Icons.person_outline,
-                              color: navy,
-                            ),
-                            label: const Text(
-                              'تسجيل الدخول',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: navy,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: const BorderSide(
-                                color: Color(0xFFD9D6CF),
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(28),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      TextButton(
-                        onPressed: () => _start(context),
-                        child: const Text(
-                          'إنشاء حساب جديد',
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Color(0xFF5275B8),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
                 ),
-              );
-            },
-          ),
+
+                // زر "ابدأ رحلتك الآن" فوق مكان الزر في الصورة.
+                Positioned(
+                  left: 28,
+                  right: 28,
+                  bottom: 125,
+                  height: 60,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(30),
+                      onTap: () => _start(context),
+                    ),
+                  ),
+                ),
+
+                // زر "تسجيل الدخول".
+                Positioned(
+                  left: 28,
+                  right: 28,
+                  bottom: 65,
+                  height: 52,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(28),
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'تسجيل الدخول سيكون متاحًا قريبًا',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+                // "إنشاء حساب جديد".
+                Positioned(
+                  left: 70,
+                  right: 70,
+                  bottom: 10,
+                  height: 45,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _start(context),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

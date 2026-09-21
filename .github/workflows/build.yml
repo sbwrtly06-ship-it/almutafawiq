@@ -36,15 +36,16 @@ jobs:
 
           import android.accessibilityservice.AccessibilityService
           import android.graphics.Color
-          import android.graphics.PixelFormat
+          import android.os.Handler
+          import android.os.Looper
+          import android.util.Log
           import android.view.Gravity
-          import android.view.WindowManager
           import android.view.accessibility.AccessibilityEvent
-          import android.widget.TextView
+          import android.widget.Toast
 
           class AppBlockAccessibilityService : AccessibilityService() {
 
-              private var overlay: TextView? = null
+              private val handler = Handler(Looper.getMainLooper())
 
               override fun onServiceConnected() {
                   super.onServiceConnected()
@@ -57,96 +58,69 @@ jobs:
 
                       notificationTimeout = 50
                   }
+
+                  Log.d("AlMutafawiqBlock", "Accessibility service connected")
               }
 
               override fun onAccessibilityEvent(event: AccessibilityEvent?) {
                   if (event == null) return
 
-                  val type = event.eventType
-                  if (type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-                      type != AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
-                      return
-                  }
+                  val packageName = event.packageName?.toString() ?: return
 
-                  val eventPackage = event.packageName?.toString()
-
-                  val activePackage = try {
-                      rootInActiveWindow?.packageName?.toString()
-                  } catch (_: Exception) {
-                      null
-                  }
-
-                  val packageName = eventPackage ?: activePackage ?: return
-
-                  val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+                  val prefs =
+                      getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
 
                   val focusActive =
                       prefs.getBoolean("flutter.focus_mode_active", false)
 
-                  val blockedPackages =
-                      prefs.getString("flutter.blocked_packages", "")
-                          ?.split("|")
-                          ?.filter { it.isNotBlank() }
-                          ?.toSet()
-                          ?: emptySet()
+                  val blockedString =
+                      prefs.getString("flutter.blocked_packages", "") ?: ""
 
-                  if (focusActive && packageName in blockedPackages) {
-                      // إظهار رسالة الحظر ثم إخراج المستخدم من التطبيق المشتت.
-                      showBlockOverlay()
+                  val blockedPackages = blockedString
+                      .split("|")
+                      .map { it.trim() }
+                      .filter { it.isNotEmpty() }
+                      .toSet()
 
-                      // العودة إلى الشاشة الرئيسية.
-                      performGlobalAction(GLOBAL_ACTION_HOME)
-                  } else {
-                      removeBlockOverlay()
-                  }
-              }
-
-              private fun showBlockOverlay() {
-                  if (overlay != null) return
-
-                  val text = TextView(this).apply {
-                      text = "🔒\n\nهذا التطبيق محظور أثناء جلسة التركيز\n\nارجع إلى الدراسة في تطبيق المتفوق"
-                      textSize = 22f
-                      setTextColor(Color.WHITE)
-                      setBackgroundColor(Color.rgb(35, 25, 55))
-                      gravity = Gravity.CENTER
-                      setPadding(40, 40, 40, 40)
-                  }
-
-                  val params = WindowManager.LayoutParams(
-                      WindowManager.LayoutParams.MATCH_PARENT,
-                      WindowManager.LayoutParams.MATCH_PARENT,
-                      WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                      0,
-                      PixelFormat.TRANSLUCENT
+                  Log.d(
+                      "AlMutafawiqBlock",
+                      "package=$packageName focus=$focusActive blocked=$blockedPackages"
                   )
 
-                  val windowManager =
-                      getSystemService(WINDOW_SERVICE) as WindowManager
-
-                  windowManager.addView(text, params)
-                  overlay = text
-              }
-
-              private fun removeBlockOverlay() {
-                  val view = overlay ?: return
-                  val windowManager =
-                      getSystemService(WINDOW_SERVICE) as WindowManager
-
-                  try {
-                      windowManager.removeView(view)
-                  } catch (_: Exception) {
+                  if (!focusActive) {
+                      return
                   }
 
-                  overlay = null
+                  if (packageName == applicationContext.packageName) {
+                      return
+                  }
+
+                  if (packageName !in blockedPackages) {
+                      return
+                  }
+
+                  Log.d(
+                      "AlMutafawiqBlock",
+                      "BLOCKING $packageName"
+                  )
+
+                  handler.post {
+                      Toast.makeText(
+                          this,
+                          "🔒 هذا التطبيق محظور أثناء جلسة التركيز",
+                          Toast.LENGTH_SHORT
+                      ).show()
+
+                      performGlobalAction(GLOBAL_ACTION_HOME)
+                  }
               }
 
               override fun onInterrupt() {
-                  removeBlockOverlay()
+                  Log.d("AlMutafawiqBlock", "Accessibility service interrupted")
               }
 
               override fun onDestroy() {
-                  removeBlockOverlay()
+                  handler.removeCallbacksAndMessages(null)
                   super.onDestroy()
               }
           }
@@ -159,7 +133,8 @@ jobs:
               android:accessibilityEventTypes="typeWindowStateChanged|typeWindowsChanged|typeWindowContentChanged"
               android:accessibilityFeedbackType="feedbackGeneric"
               android:notificationTimeout="50"
-              android:accessibilityFlags="flagDefault|flagReportViewIds" />
+              android:canRetrieveWindowContent="true"
+              android:accessibilityFlags="flagDefault|flagReportViewIds|flagRetrieveInteractiveWindows" />
           EOF
 
       - name: Add Usage Access permission
