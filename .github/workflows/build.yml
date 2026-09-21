@@ -26,6 +26,32 @@ jobs:
       - name: Create Android platform
         run: flutter create --platforms=android --org com.almutafawiq .
 
+      - name: Set Android API 36
+        run: |
+          python3 - <<'PY2'
+          from pathlib import Path
+
+          p = Path("android/app/build.gradle.kts")
+          if not p.exists():
+              raise SystemExit("ERROR: android/app/build.gradle.kts was not generated")
+
+          s = p.read_text()
+
+          s = s.replace(
+              "compileSdk = flutter.compileSdkVersion",
+              "compileSdk = 36"
+          )
+          s = s.replace(
+              "targetSdk = flutter.targetSdkVersion",
+              "targetSdk = 36"
+          )
+
+          p.write_text(s)
+          print("Android compileSdk and targetSdk set to 36")
+          PY2
+
+          grep -n -E "compileSdk|targetSdk" android/app/build.gradle.kts
+
       - name: Add Accessibility blocking service
         run: |
           mkdir -p android/app/src/main/kotlin/com/almutafawiq/almutafawiq
@@ -74,8 +100,13 @@ jobs:
                   checkBlockedApp(packageName)
               }
 
+              private var lastBlockedPackage: String? = null
+
               private fun checkBlockedApp(packageName: String) {
-                  if (packageName == applicationContext.packageName) return
+                  if (packageName == applicationContext.packageName) {
+                      lastBlockedPackage = null
+                      return
+                  }
 
                   val prefs =
                       getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
@@ -83,7 +114,10 @@ jobs:
                   val focusActive =
                       prefs.getBoolean("flutter.focus_mode_active", false)
 
-                  if (!focusActive) return
+                  if (!focusActive) {
+                      lastBlockedPackage = null
+                      return
+                  }
 
                   val blockedString =
                       prefs.getString("flutter.blocked_packages", "") ?: ""
@@ -99,7 +133,87 @@ jobs:
                       "CHECK package=$packageName focus=$focusActive blocked=$blockedPackages"
                   )
 
-                  if (packageName !in blockedPackages) return
+                  // عند الانتقال إلى تطبيق غير محظور نسمح بتسجيل
+                  // محاولة جديدة لنفس التطبيق لاحقاً.
+                  if (packageName !in blockedPackages) {
+                      lastBlockedPackage = null
+                      return
+                  }
+
+                  // Accessibility قد يرسل عدة أحداث لنفس عملية الفتح.
+                  // نسجل المحاولة مرة واحدة فقط لكل فتح.
+                  if (lastBlockedPackage == packageName) {
+                      return
+                  }
+
+                  lastBlockedPackage = packageName
+
+                  val appName = try {
+                      packageManager.getApplicationLabel(
+                          packageManager.getApplicationInfo(
+                              packageName,
+                              PackageManager.GET_META_DATA
+                          )
+                      ).toString()
+                  } catch (_: Exception) {
+                      packageName
+                  }
+
+                  val now = java.util.Calendar.getInstance()
+
+                  val year = now.get(java.util.Calendar.YEAR)
+                  val month = now.get(java.util.Calendar.MONTH) + 1
+                  val day = now.get(java.util.Calendar.DAY_OF_MONTH)
+
+                  val dateKey =
+                      String.format(
+                          java.util.Locale.US,
+                          "%04d-%02d-%02d",
+                          year,
+                          month,
+                          day
+                      )
+
+                  val attemptsKey =
+                      "flutter.distraction_attempts_$dateKey"
+
+                  val namesKey =
+                      "flutter.distraction_names_$dateKey"
+
+                  val currentAttempts =
+                      prefs.getInt(attemptsKey, 0)
+
+                  prefs.edit()
+                      .putInt(
+                          attemptsKey,
+                          currentAttempts + 1
+                      )
+                      .apply()
+
+                  val oldNames =
+                      prefs.getStringSet(namesKey, emptySet())
+                          ?.toMutableSet()
+                          ?: mutableSetOf()
+
+                  // نستخدم مفتاحاً فريداً لكل محاولة حتى لا تختفي
+                  // المحاولات المتكررة لنفس التطبيق.
+                  val attemptId =
+                      "${System.currentTimeMillis()}|$packageName"
+
+                  oldNames.add(
+                      "$attemptId|$appName|$packageName"
+                  )
+
+                  prefs.edit()
+                      .putStringSet(namesKey, oldNames)
+                      .apply()
+
+                  Log.d(
+                      "AlMutafawiqBlock",
+                      "DISTRACTION_ATTEMPT #" +
+                          (currentAttempts + 1) +
+                          " app=$appName package=$packageName"
+                  )
 
                   Log.d(
                       "AlMutafawiqBlock",
