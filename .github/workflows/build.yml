@@ -35,13 +35,10 @@ jobs:
           package com.almutafawiq.almutafawiq
 
           import android.accessibilityservice.AccessibilityService
-          import android.graphics.Color
           import android.os.Handler
           import android.os.Looper
           import android.util.Log
-          import android.view.Gravity
           import android.view.accessibility.AccessibilityEvent
-          import android.widget.Toast
 
           class AppBlockAccessibilityService : AccessibilityService() {
 
@@ -53,25 +50,40 @@ jobs:
                   serviceInfo = serviceInfo.apply {
                       eventTypes =
                           AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-                          AccessibilityEvent.TYPE_WINDOWS_CHANGED or
-                          AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+                          AccessibilityEvent.TYPE_WINDOWS_CHANGED
 
                       notificationTimeout = 50
                   }
 
-                  Log.d("AlMutafawiqBlock", "Accessibility service connected")
+                  Log.d("AlMutafawiqBlock", "SERVICE_CONNECTED")
               }
 
               override fun onAccessibilityEvent(event: AccessibilityEvent?) {
                   if (event == null) return
 
-                  val packageName = event.packageName?.toString() ?: return
+                  val eventPackage = event.packageName?.toString()
+
+                  val activePackage = try {
+                      rootInActiveWindow?.packageName?.toString()
+                  } catch (_: Exception) {
+                      null
+                  }
+
+                  val packageName = eventPackage ?: activePackage ?: return
+
+                  checkBlockedApp(packageName)
+              }
+
+              private fun checkBlockedApp(packageName: String) {
+                  if (packageName == applicationContext.packageName) return
 
                   val prefs =
                       getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
 
                   val focusActive =
                       prefs.getBoolean("flutter.focus_mode_active", false)
+
+                  if (!focusActive) return
 
                   val blockedString =
                       prefs.getString("flutter.blocked_packages", "") ?: ""
@@ -84,25 +96,10 @@ jobs:
 
                   Log.d(
                       "AlMutafawiqBlock",
-                      "package=$packageName focus=$focusActive blocked=$blockedPackages"
+                      "CHECK package=$packageName focus=$focusActive blocked=$blockedPackages"
                   )
 
-                  prefs.edit()
-                      .putString("flutter.accessibility_last_package", packageName)
-                      .putBoolean("flutter.accessibility_service_seen", true)
-                      .apply()
-
-                  if (!focusActive) {
-                      return
-                  }
-
-                  if (packageName == applicationContext.packageName) {
-                      return
-                  }
-
-                  if (packageName !in blockedPackages) {
-                      return
-                  }
+                  if (packageName !in blockedPackages) return
 
                   Log.d(
                       "AlMutafawiqBlock",
@@ -110,18 +107,12 @@ jobs:
                   )
 
                   handler.post {
-                      Toast.makeText(
-                          this,
-                          "🔒 هذا التطبيق محظور أثناء جلسة التركيز",
-                          Toast.LENGTH_SHORT
-                      ).show()
-
                       performGlobalAction(GLOBAL_ACTION_HOME)
                   }
               }
 
               override fun onInterrupt() {
-                  Log.d("AlMutafawiqBlock", "Accessibility service interrupted")
+                  Log.d("AlMutafawiqBlock", "SERVICE_INTERRUPTED")
               }
 
               override fun onDestroy() {
