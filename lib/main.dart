@@ -612,37 +612,61 @@ class _FocusScreenState extends State<FocusScreen> {
   bool running = false;
   bool loaded = false;
 
+  DateTime? endTime;
+
   Timer? monitorTimer;
   String? lastDetectedPackage;
 
   static const usageChannel = MethodChannel('almutafawiq/usage');
 
-  final blockedPackages = <String, String>{
-    'TikTok': 'com.zhiliaoapp.musically',
-    'Instagram': 'com.instagram.android',
-    'Snapchat': 'com.snapchat.android',
-    'YouTube': 'com.google.android.youtube',
-    'Facebook': 'com.facebook.katana',
-    'WhatsApp': 'com.whatsapp',
-    'Telegram': 'org.telegram.messenger',
-  };
+  final blockedPackages = <String, String>{};
 
   @override
   void initState() {
     super.initState();
-    loadDuration();
+    loadFocusSession();
   }
 
-  Future<void> loadDuration() async {
+  Future<void> loadFocusSession() async {
     final prefs = await SharedPreferences.getInstance();
     final minutes = prefs.getInt('daily_goal_minutes') ?? 120;
+
+    final savedEnd = prefs.getInt('focus_end_time');
+    final active = prefs.getBool('focus_mode_active') ?? false;
+
+    totalSeconds = minutes * 60;
+
+    if (active && savedEnd != null) {
+      final savedEndTime =
+          DateTime.fromMillisecondsSinceEpoch(savedEnd);
+      final secondsLeft =
+          savedEndTime.difference(DateTime.now()).inSeconds;
+
+      if (secondsLeft > 0) {
+        endTime = savedEndTime;
+        remainingSeconds = secondsLeft;
+        running = true;
+
+        if (mounted) {
+          setState(() {
+            loaded = true;
+          });
+        }
+
+        await startMonitoring();
+        startTicker();
+        return;
+      }
+
+      await finishSession(prefs);
+    }
 
     if (!mounted) return;
 
     setState(() {
-      totalSeconds = minutes * 60;
       remainingSeconds = totalSeconds;
       loaded = true;
+      running = false;
     });
   }
 
@@ -660,6 +684,11 @@ class _FocusScreenState extends State<FocusScreen> {
     } catch (_) {}
   }
 
+  Future<void> setFocusMode(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('focus_mode_active', enabled);
+  }
+
   Future<void> startMonitoring() async {
     monitorTimer?.cancel();
 
@@ -667,13 +696,12 @@ class _FocusScreenState extends State<FocusScreen> {
     final savedPackages =
         prefs.getString('blocked_packages')?.split('|') ?? [];
 
-    blockedPackages
-      ..clear();
+    blockedPackages.clear();
 
-    for (final packageName in savedPackages) {
-      final package = packageName.trim();
-      if (package.isNotEmpty) {
-        blockedPackages[package] = package;
+    for (final package in savedPackages) {
+      final value = package.trim();
+      if (value.isNotEmpty) {
+        blockedPackages[value] = value;
       }
     }
 
@@ -691,11 +719,6 @@ class _FocusScreenState extends State<FocusScreen> {
     lastDetectedPackage = null;
   }
 
-  Future<void> setFocusMode(bool enabled) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('focus_mode_active', enabled);
-  }
-
   Future<void> checkForegroundApp() async {
     if (!running) return;
 
@@ -704,38 +727,33 @@ class _FocusScreenState extends State<FocusScreen> {
         'getForegroundPackage',
       );
 
-      if (package == null) return;
-
-      // نتدخل فقط إذا كان التطبيق من التطبيقات التي اختارها المستخدم.
-      if (!blockedPackages.containsKey(package)) {
+      if (package == null ||
+          !blockedPackages.containsKey(package)) {
+        lastDetectedPackage = null;
         return;
       }
 
-      final detectedName = package;
-
-      // لا نسجل أو نعيد المستخدم عدة مرات متتالية لنفس التطبيق.
       if (lastDetectedPackage == package) return;
 
       lastDetectedPackage = package;
 
       final prefs = await SharedPreferences.getInstance();
-
       final now = DateTime.now();
+
       final dateKey =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-'
           '${now.day.toString().padLeft(2, '0')}';
 
       final key = 'distraction_attempts_$dateKey';
-
       final attempts = prefs.getInt(key) ?? 0;
+
       await prefs.setInt(key, attempts + 1);
 
       final namesKey = 'distraction_names_$dateKey';
       final names = prefs.getStringList(namesKey) ?? <String>[];
-      names.add(detectedName);
+      names.add(package);
       await prefs.setStringList(namesKey, names);
 
-      // إعادة المستخدم إلى تطبيق المتفوق.
       try {
         await usageChannel.invokeMethod<bool>('bringAppToFront');
       } catch (_) {}
@@ -744,28 +762,15 @@ class _FocusScreenState extends State<FocusScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'تم منع محاولة فتح تطبيق مشتت: $detectedName',
-          ),
+          content: Text('تم منع محاولة فتح تطبيق مشتت: $package'),
           duration: const Duration(seconds: 2),
         ),
       );
-    } catch (_) {
-      // Usage Access قد لا يكون مفعلاً بعد.
-    }
+    } catch (_) {}
   }
 
-  Future<void> toggleTimer() async {
-    if (!loaded) return;
-
-    if (running) {
-      timer?.cancel();
-      stopMonitoring();
-      await setFocusMode(false);
-
-      setState(() => running = false);
-      return;
-    }
+  Future<void> startFocus() async {
+    if (!loaded || running) return;
 
     final access = await hasUsageAccess();
 
@@ -799,59 +804,101 @@ class _FocusScreenState extends State<FocusScreen> {
       return;
     }
 
-    setState(() => running = true);
+    final prefs = await SharedPreferences.getInstance();
 
-    await setFocusMode(true);
+    final seconds = remainingSeconds > 0
+        ? remainingSeconds
+        : totalSeconds;
+
+    final newEndTime =
+        DateTime.now().add(Duration(seconds: seconds));
+
+    await prefs.setInt(
+      'focus_end_time',
+      newEndTime.millisecondsSinceEpoch,
+    );
+
+    await prefs.setBool('focus_mode_active', true);
+
+    endTime = newEndTime;
+
+    if (!mounted) return;
+
+    setState(() {
+      running = true;
+      remainingSeconds = seconds;
+    });
+
     await startMonitoring();
+    startTicker();
+  }
 
-    timer = Timer.periodic(const Duration(seconds: 1), (_) async {
-      if (remainingSeconds <= 1) {
-        timer?.cancel();
-        stopMonitoring();
-        await setFocusMode(false);
+  void startTicker() {
+    timer?.cancel();
 
-        setState(() {
-          remainingSeconds = 0;
-          running = false;
-        });
+    timer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => updateRemainingTime(),
+    );
+  }
 
-        saveSession();
-      } else {
-        setState(() => remainingSeconds--);
-      }
+  Future<void> updateRemainingTime() async {
+    if (!running || endTime == null) return;
+
+    final secondsLeft =
+        endTime!.difference(DateTime.now()).inSeconds;
+
+    if (secondsLeft <= 0) {
+      final prefs = await SharedPreferences.getInstance();
+      await finishSession(prefs);
+      return;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      remainingSeconds = secondsLeft;
     });
   }
 
-  Future<void> saveSession() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<void> finishSession(SharedPreferences prefs) async {
+    timer?.cancel();
+    timer = null;
+
+    stopMonitoring();
 
     final completed =
         prefs.getInt('completed_focus_minutes') ?? 0;
 
-    final studiedSeconds = totalSeconds - remainingSeconds;
-    final studiedMinutes = studiedSeconds ~/ 60;
+    final minutes = totalSeconds ~/ 60;
 
     await prefs.setInt(
       'completed_focus_minutes',
-      completed + studiedMinutes,
+      completed + minutes,
     );
 
     await prefs.setString(
       'last_focus_session',
       DateTime.now().toIso8601String(),
     );
-  }
 
-  Future<void> resetTimer() async {
-    timer?.cancel();
-    stopMonitoring();
+    await prefs.setBool('focus_mode_active', false);
+    await prefs.remove('focus_end_time');
 
-    await saveSession();
+    endTime = null;
+
+    if (!mounted) return;
 
     setState(() {
-      remainingSeconds = totalSeconds;
+      remainingSeconds = 0;
       running = false;
     });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🎉 انتهت جلسة التركيز! أحسنت.'),
+      ),
+    );
   }
 
   String formatTime() {
@@ -871,7 +918,8 @@ class _FocusScreenState extends State<FocusScreen> {
 
   double get progress {
     if (totalSeconds == 0) return 0;
-    return (totalSeconds - remainingSeconds) / totalSeconds;
+    return ((totalSeconds - remainingSeconds) / totalSeconds)
+        .clamp(0.0, 1.0);
   }
 
   @override
@@ -969,12 +1017,10 @@ class _FocusScreenState extends State<FocusScreen> {
             width: double.infinity,
             height: 58,
             child: FilledButton.icon(
-              onPressed: toggleTimer,
-              icon: Icon(
-                running ? Icons.pause : Icons.play_arrow,
-              ),
+              onPressed: running ? null : startFocus,
+              icon: const Icon(Icons.play_arrow),
               label: Text(
-                running ? 'إيقاف مؤقت' : 'ابدأ التركيز',
+                running ? 'الجلسة قيد التنفيذ' : 'ابدأ التركيز',
                 style: const TextStyle(fontSize: 19),
               ),
             ),
@@ -982,11 +1028,15 @@ class _FocusScreenState extends State<FocusScreen> {
 
           const SizedBox(height: 10),
 
-          TextButton.icon(
-            onPressed: resetTimer,
-            icon: const Icon(Icons.restart_alt),
-            label: const Text('إعادة ضبط'),
-          ),
+          if (running)
+            const Text(
+              'لا يمكن إيقاف الجلسة أثناء التركيز',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.black54,
+                fontSize: 14,
+              ),
+            ),
 
           const SizedBox(height: 10),
         ],
@@ -994,7 +1044,6 @@ class _FocusScreenState extends State<FocusScreen> {
     );
   }
 }
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
