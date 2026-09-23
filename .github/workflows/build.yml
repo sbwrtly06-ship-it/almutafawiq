@@ -517,3 +517,9 @@ jobs:
         with:
           name: almutafawiq-apk
           path: build/app/outputs/flutter-apk/*.apk
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: almutafawiq-aab
+          path: build/app/outputs/bundle/release/*.aab
